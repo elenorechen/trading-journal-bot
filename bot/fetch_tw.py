@@ -144,6 +144,13 @@ def taiex(d: str) -> dict:
     raise RuntimeError(f"找不到 {d} 的加權指數資料")
 
 
+def twse_latest_date() -> str:
+    """證交所本月最後一個有資料的交易日（期交所連不上時的備援）。"""
+    js = get_json(f"{TWSE}/afterTrading/FMTQIK", params={"response": "json"})
+    y, m, d = js["data"][-1][0].split("/")
+    return f"{int(y) + 1911}{m}{d}"
+
+
 def holidays(year: int) -> set[str]:
     """證交所休市日 (YYYY-MM-DD)。「開始交易日 / 最後交易日」那種列不是休市，要排除。"""
     js = get_json(f"{TWSE}/holidaySchedule/holidaySchedule", params={"date": f"{year}0101", "response": "json"})
@@ -164,7 +171,11 @@ def is_market_closed(today: date) -> bool:
 def collect() -> dict:
     """抓齊所有台股籌碼資料。單一來源失敗不會讓整份資料失敗，會記在 errors 裡。"""
     data: dict = {"errors": []}
-    data_date = latest_trading_date()
+    try:
+        data_date = latest_trading_date()
+    except Exception as e:
+        data["errors"].append(f"taifex_date: {e}")
+        data_date = twse_latest_date()
     data["date"] = data_date
 
     jobs = {

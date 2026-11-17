@@ -28,7 +28,13 @@ def get(url: str, *, params: dict | None = None, retries: int = 3, timeout: int 
 def get_json(url: str, **kw):
     r = get(url, **kw)
     r.encoding = "utf-8-sig"
-    return r.json()
+    try:
+        return r.json()
+    except ValueError:
+        snippet = " ".join(r.text[:160].split())
+        raise RuntimeError(
+            f"{url} 回傳的不是 JSON（HTTP {r.status_code}, {r.headers.get('content-type')}）：{snippet!r}"
+        ) from None
 
 
 def get_text(url: str, **kw) -> str:
