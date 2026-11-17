@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 from datetime import date, datetime
+from functools import lru_cache
 
 from .net import get_json, get_text
 
@@ -27,67 +29,95 @@ def _yi(thousand_or_yuan: float, unit: str) -> float:
 
 
 # ---------------------------------------------------------------- TAIFEX
+# 期交所 OpenAPI 會依伺服器節點隨機回傳 JSON 或 CSV（同一個網址、同樣的請求），
+# 兩種格式欄位順序相同，所以統一轉成「一列 = 字串清單」再依欄位位置讀取。
+
+@lru_cache(maxsize=None)
+def taifex_rows(endpoint: str) -> tuple[tuple[str, ...], ...]:
+    text = get_text(f"{TAIFEX}/{endpoint}").lstrip("﻿").strip()
+    if text.startswith("["):
+        rows = [tuple(str(v).strip() for v in obj.values()) for obj in json.loads(text)]
+    else:
+        rows = [tuple(c.strip() for c in r) for r in csv.reader(io.StringIO(text))][1:]  # 去掉中文表頭
+    rows = [r for r in rows if r and r[0][:1].isdigit()]
+    if not rows:
+        raise RuntimeError(f"期交所 {endpoint} 沒有資料")
+    return tuple(rows)
+
+
+FUT_INST = "MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate"
+
+
+def _who(item: str) -> str | None:
+    for prefix, key in (("外資", "foreign"), ("投信", "trust"), ("自營", "dealer")):
+        if item.startswith(prefix):
+            return key
+    return None
+
 
 def latest_trading_date() -> str:
     """期交所最新一筆三大法人資料的日期 (YYYYMMDD)，用來當作「資料日」。"""
-    rows = get_json(f"{TAIFEX}/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate")
-    return rows[0]["Date"]
+    return taifex_rows(FUT_INST)[0][0]
 
 
 def futures_institutional() -> dict:
-    """三大法人台指期 / 小台未平倉淨口數。"""
-    rows = get_json(f"{TAIFEX}/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate")
-    names = {"外資及陸資": "foreign", "投信": "trust", "自營商": "dealer"}
-    out: dict = {"date": rows[0]["Date"], "tx": {}, "mtx": {}}
+    """三大法人台指期 / 小台未平倉淨口數。
+    欄位：0 日期, 1 商品, 2 身份別, 7 交易口數淨額, 13 未平倉口數淨額"""
+    rows = taifex_rows(FUT_INST)
+    out: dict = {"date": rows[0][0], "tx": {}, "mtx": {}}
     for r in rows:
-        key = {"臺股期貨": "tx", "小型臺指期貨": "mtx"}.get(r["ContractCode"])
-        who = names.get(r["Item"])
+        key = {"臺股期貨": "tx", "小型臺指期貨": "mtx"}.get(r[1])
+        who = _who(r[2])
         if key and who:
-            out[key][who] = {
-                "oi_net": int(_num(r["OpenInterest(Net)"])),
-                "trade_net": int(_num(r["TradingVolume(Net)"])),
-            }
+            out[key][who] = {"oi_net": int(_num(r[13])), "trade_net": int(_num(r[7]))}
+    if not out["tx"]:
+        raise RuntimeError("找不到台指期三大法人資料")
     return out
 
 
 def futures_market() -> dict:
-    """台指期近月結算價 / 漲跌，以及小台全市場未平倉（算散戶多空比用）。"""
-    rows = get_json(f"{TAIFEX}/DailyMarketReportFut")
-    day = [r for r in rows if r["TradingSession"] == "一般"]
-    tx = sorted(
-        (r for r in day if r["Contract"] == "TX" and r["ContractMonth(Week)"].isdigit()),
-        key=lambda r: r["ContractMonth(Week)"],
-    )
+    """台指期近月結算價 / 漲跌，以及小台全市場未平倉（算散戶多空比用）。
+    欄位：0 日期, 1 契約, 2 月份, 6 最後價, 7 漲跌, 8 %, 9 量, 10 結算價, 11 未平倉, 17 交易時段"""
+    rows = taifex_rows("DailyMarketReportFut")
+    day = [r for r in rows if len(r) > 17 and r[17] == "一般"]
+    if not day:  # 時段欄位格式不同時：一般盤才有結算價
+        day = [r for r in rows if len(r) > 11 and r[10] not in ("NULL", "-", "")]
+    tx = sorted((r for r in day if r[1] == "TX" and r[2].isdigit()), key=lambda r: r[2])
+    if not tx:
+        raise RuntimeError("找不到台指期行情")
     near = tx[0]
     mtx_oi = 0
     for r in day:
-        if r["Contract"] == "MTX":
+        if r[1] == "MTX":
             try:
-                mtx_oi += int(_num(r["OpenInterest"]))
+                mtx_oi += int(_num(r[11]))
             except ValueError:
                 pass
+    try:
+        close = _num(near[10])
+    except ValueError:
+        close = _num(near[6])
     return {
-        "date": near["Date"],
-        "tx_month": near["ContractMonth(Week)"],
-        "tx_close": _num(near["SettlementPrice"]) if near["SettlementPrice"] not in ("NULL", "-") else _num(near["Last"]),
-        "tx_change": _num(near["Change"]),
-        "tx_change_pct": near["%"],
-        "tx_volume": int(_num(near["Volume"])),
+        "date": near[0],
+        "tx_month": near[2],
+        "tx_close": close,
+        "tx_change": _num(near[7]),
+        "tx_change_pct": near[8],
+        "tx_volume": int(_num(near[9])),
         "mtx_total_oi": mtx_oi,
     }
 
 
 def put_call_ratio() -> dict:
-    rows = get_json(f"{TAIFEX}/PutCallRatio")
-    r = rows[0]
-    return {"date": r["Date"], "oi_ratio": _num(r["PutCallOIRatio%"]), "volume_ratio": _num(r["PutCallVolumeRatio%"])}
+    """欄位：0 日期, 3 成交量比率%, 6 未平倉比率%"""
+    r = max(taifex_rows("PutCallRatio"), key=lambda r: r[0])
+    return {"date": r[0], "oi_ratio": _num(r[6]), "volume_ratio": _num(r[3])}
 
 
 def large_traders() -> dict:
-    """台指期（TX+MTX/4）所有月份，前五 / 前十大交易人淨部位。"""
-    text = get_text(f"{TAIFEX}/OpenInterestOfLargeTradersFutures")
-    for row in csv.reader(io.StringIO(text)):
-        # 日期,契約,商品名稱,到期月份,交易人類別(0=全部 1=特定法人),前五買,前五賣,前十買,前十賣,全市場未沖銷
+    """台指期（TX+MTX/4）所有月份，前五 / 前十大交易人淨部位。
+    欄位：0 日期, 1 契約, 3 到期月份, 4 交易人類別(0=全部), 5-8 前五/前十 買賣, 9 全市場未沖銷"""
+    for row in taifex_rows("OpenInterestOfLargeTradersFutures"):
         if len(row) >= 10 and row[1] == "TX" and row[3] == "999912" and row[4] == "0":
             b5, s5, b10, s10, total = (int(_num(x)) for x in row[5:10])
             return {"date": row[0], "top5_net": b5 - s5, "top10_net": b10 - s10, "market_oi": total}
