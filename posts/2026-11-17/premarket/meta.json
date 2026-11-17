@@ -1,0 +1,16 @@
+{
+ "title": "📋 盤前籌碼與總經 2026/11/17（二）",
+ "images": [
+  "1-chips.jpg",
+  "2-global.jpg",
+  "3-macro.jpg"
+ ],
+ "kind": "premarket",
+ "data_date": "20261117",
+ "errors": [
+  "taifex_date: https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate 回傳的不是 JSON（HTTP 200, application/octet-stream）：'日期,商品名稱,身份別,多方交易口數,多方交易契約金額(千元),空方交易口數,空方交易契約金額(千元),多空交易口數淨額,多空交易契約金額淨額(千元),多方未平倉口數,多方未平倉契約金額(千元),空方未平倉口數,空方未平倉契約金額(千元),多空未平倉口數淨額,多空未平倉契約金額淨額(千元) 20261116,臺股期貨'",
+  "margin: 證交所融資融券資料尚未公布：很抱歉，沒有符合條件的資料",
+  "fut_inst: https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate 回傳的不是 JSON（HTTP 200, application/octet-stream）：'日期,商品名稱,身份別,多方交易口數,多方交易契約金額(千元),空方交易口數,空方交易契約金額(千元),多空交易口數淨額,多空交易契約金額淨額(千元),多方未平倉口數,多方未平倉契約金額(千元),空方未平倉口數,空方未平倉契約金額(千元),多空未平倉口數淨額,多空未平倉契約金額淨額(千元) 20261116,臺股期貨'",
+  "large: 找不到台指期大額交易人資料"
+ ]
+}
