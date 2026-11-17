@@ -1,0 +1,37 @@
+name: 📈 盤前規劃
+description: 貼上 TradingView 圖表和你的走勢規劃，機器人會整理成 IG / Threads 草稿
+title: "盤前規劃"
+labels: ["plan"]
+body:
+  - type: input
+    id: title
+    attributes:
+      label: 標題
+      description: 會放在圖卡上方和貼文第一行
+      placeholder: 例：台指期 41000 支撐保衛戰
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: 盤前規劃內容
+      description: 你的觀察、關鍵價位、劇本（照原文發出，不會被改寫）
+      placeholder: |
+        1. 昨日長黑跌破季線，今天先看 40700 能不能守
+        2. 上方壓力 41500（前低轉壓）
+        3. 劇本 A：……
+    validations:
+      required: true
+  - type: textarea
+    id: charts
+    attributes:
+      label: TradingView 圖表
+      description: 直接把截圖拖曳或貼上到這裡（可以多張，最多 9 張）
+    validations:
+      required: true
+  - type: checkboxes
+    id: options
+    attributes:
+      label: 選項
+      options:
+        - label: 附上今天的籌碼總覽圖卡

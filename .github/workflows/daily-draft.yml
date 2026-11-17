@@ -1,0 +1,58 @@
+name: 每日盤前草稿
+
+on:
+  schedule:
+    # GitHub 用 UTC 時間：23:00 UTC = 台灣時間隔天 07:00，週一到週五
+    - cron: "0 23 * * 0-4"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "休市日也產生"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安裝中文字型與套件
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk
+          pip install -r requirements.txt
+
+      - name: 抓資料、寫文、畫圖卡
+        id: gen
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python -m bot daily ${{ inputs.force && '--force' || '' }}
+
+      - name: 存進 repo（圖片需要公開網址給 IG 讀取）
+        if: steps.gen.outputs.skip != 'true'
+        run: |
+          git config user.name "journal-bot"
+          git config user.email "journal-bot@users.noreply.github.com"
+          git add posts data
+          git commit -m "draft: ${{ steps.gen.outputs.dir }}" || echo "nothing to commit"
+          git pull --rebase
+          git push
+
+      - name: 開草稿 issue
+        if: steps.gen.outputs.skip != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m bot open-draft "${{ steps.gen.outputs.dir }}"

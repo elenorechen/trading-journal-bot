@@ -1,0 +1,4 @@
+anthropic>=2.9.0
+requests>=2.32
+yfinance>=0.2.50
+pillow>=11.0

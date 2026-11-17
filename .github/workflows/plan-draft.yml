@@ -1,0 +1,51 @@
+name: 盤前規劃投稿 → 草稿
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: repo-write
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    # 只處理 repo 擁有者用「盤前規劃」表單開的 issue
+    if: contains(github.event.issue.labels.*.name, 'plan') && github.event.issue.user.login == github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安裝中文字型與套件
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk
+          pip install -r requirements.txt
+
+      - name: 把圖表套上版型、整理文字
+        id: gen
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m bot plan --issue ${{ github.event.issue.number }}
+
+      - name: 存進 repo
+        run: |
+          git config user.name "journal-bot"
+          git config user.email "journal-bot@users.noreply.github.com"
+          git add posts
+          git commit -m "plan: ${{ steps.gen.outputs.dir }}" || echo "nothing to commit"
+          git pull --rebase
+          git push
+
+      - name: 開草稿 issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -m bot open-draft "${{ steps.gen.outputs.dir }}" --source-issue ${{ github.event.issue.number }}

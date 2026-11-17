@@ -1,0 +1,35 @@
+# ============================================================
+#  交易日誌粉專 — 設定檔（改完存檔、push 到 GitHub 就會生效）
+# ============================================================
+
+[brand]
+# 粉專名稱，會印在每張圖卡的左上角
+name = "交易日誌"
+# 你的 IG / Threads 帳號，印在圖卡底部
+handle = "@your_account"
+# 每篇貼文最後都會自動加上的免責聲明（建議保留）
+disclaimer = "本內容為個人交易紀錄與觀點分享，非投資建議，不構成任何買賣推薦。投資有風險，請自行判斷並承擔盈虧。"
+# IG 貼文最後的 hashtag（不用加 #）
+hashtags = ["台股", "台指期", "籌碼分析", "交易日誌", "總經", "盤前分析", "期貨"]
+# 斗內 / 支持連結（留空就不顯示）。例如 Portaly、Buy Me a Coffee 的網址
+support_link = ""
+
+[claude]
+# 整理總經新聞、撰寫貼文用的模型
+model = "claude-opus-5-5"
+# low / medium / high：越高越仔細、也越貴
+effort = "medium"
+# 讓 Claude 上網查今天的經濟數據行事曆與昨夜重大新聞
+use_web_search = true
+# 你的寫作風格（Claude 會照這個語氣寫）
+voice = "口吻像在寫自己的交易筆記：簡潔、理性、有條理，偶爾帶一點自嘲。用台灣的用語。"
+
+[meta]
+# Instagram Graph API 版本、Threads API 版本
+instagram_api_version = "v23.0"
+threads_api_version = "v1.0"
+
+[fonts]
+# 圖卡字型。留空會自動尋找（GitHub 上用 Noto Sans CJK，Windows 用微軟正黑體）
+regular = ""
+bold = ""
