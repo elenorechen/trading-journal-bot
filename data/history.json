@@ -18,5 +18,15 @@
   "pcr_oi": 54.08,
   "taiex": 40092.11,
   "foreign_stock": -380.94
+ },
+ "20261118": {
+  "foreign_tx_oi": -99438,
+  "trust_tx_oi": 93573,
+  "dealer_tx_oi": -1457,
+  "top10_net": 6567,
+  "retail_ratio": 16.37,
+  "pcr_oi": 39.8,
+  "taiex": 40194.91,
+  "foreign_stock": -765.64
  }
 }
